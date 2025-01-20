@@ -76,7 +76,7 @@ Sprites which have more than one layer in GameMaker's built-in sprite editor are
 
 ### PNG Recoding
 
-GameMaker likes to recode the `.png`-files of sprites. We don't know how or why, but it does not seem to be necessary. If you ever notice strange graphical behaviors or artifacts after using `gmreimport`, the specific encoding done by your image editing software might have a compatibility issue with how GameMaker attempts to decode it. So far, I can report `.png`-files exported by Aseprite and Clip Studio not causing any problems.
+GameMaker likes to recode the `.png`-files of sprites. We don't know how or why, but it does not seem to be necessary. The only issue this is known to cause is that `gmreimport` will fail to detect when recoded files are in reality unchanged, updating them unnecessarily. If you ever notice strange graphical behaviors or artifacts, or an increase in loading times after using `gmreimport`, the specific encoding done by your image editing software might have a compatibility issue with how GameMaker attempts to decode it. So far, I can report `.png`-files exported by Aseprite and Clip Studio not causing any problems.
 
 ### Changed files warning
 
