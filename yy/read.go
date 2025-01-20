@@ -10,7 +10,7 @@ import (
 )
 
 // Reader for GameMaker .yy files; basically JSON with extra trailing commas in arrays and objects.
-// Not sure how strings are escaped; this implementation currently returns an error when a backslash is encountered.
+// Not sure how strings are escaped; this implementation currently returns an error when a backslash is encountered. If you find one let me know.
 type Reader struct {
 	r            io.Reader
 	b            []byte

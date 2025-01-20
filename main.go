@@ -43,9 +43,9 @@ type GMFrame struct {
 func main() {
 	log.SetFlags(0)
 	params := parseArgs(os.Args[1:])
-	candidatesSrcByName := parseSpritesSrc(params.SrcPath, make(map[string]MasterImage))
-	candidatesDst := parseSpritesDst(params.DstPath)
-	reImports := determineReimports(candidatesSrcByName, candidatesDst)
+	candidatesSrcByName := findImportCandidates(params.SrcPath, make(map[string]MasterImage))
+	candidatesDst := findGMSprites(params.DstPath)
+	reImports := determineReImports(candidatesSrcByName, candidatesDst)
 	for _, reImport := range reImports {
 		frame := reImport.Dst.Frames[reImport.FrameIndex]
 		fromFilePath := reImport.Src.FilePath
@@ -61,7 +61,6 @@ func main() {
 }
 
 func copyFile(fromFilePath, toFilePath string) {
-	log.Printf("Copying %#q to %#q.", fromFilePath, toFilePath)
 	fileFrom, err := os.Open(fromFilePath)
 	if err != nil {
 		log.Fatalf("Could not open %#q to copy from: %v", fromFilePath, err)
@@ -76,9 +75,10 @@ func copyFile(fromFilePath, toFilePath string) {
 	if err != nil {
 		log.Fatalf("Could not copy %#q to %#q: %v", fromFilePath, toFilePath, err)
 	}
+	log.Printf("Copied %#q to %#q.", fromFilePath, toFilePath)
 }
 
-func determineReimports(candidatesSrcByName map[string]MasterImage, candidatesDst []GMSprite) (reImports []GMFrameReImport) {
+func determineReImports(candidatesSrcByName map[string]MasterImage, candidatesDst []GMSprite) (reImports []GMFrameReImport) {
 	for _, spriteDst := range candidatesDst {
 		if len(spriteDst.Frames) > 1 {
 			const numDigitVariants = 4
@@ -141,7 +141,7 @@ func determineReimports(candidatesSrcByName map[string]MasterImage, candidatesDs
 	return reImports
 }
 
-func parseSpritesSrc(spritesPath string, candidatesByName map[string]MasterImage) map[string]MasterImage {
+func findImportCandidates(spritesPath string, candidatesByName map[string]MasterImage) map[string]MasterImage {
 	spriteInfos, err := os.ReadDir(spritesPath)
 	if err != nil {
 		log.Fatalf("Read %#q: %v", spritesPath, err)
@@ -150,7 +150,7 @@ func parseSpritesSrc(spritesPath string, candidatesByName map[string]MasterImage
 		fileName := spriteInfo.Name()
 		filePath := filepath.Join(spritesPath, fileName)
 		if spriteInfo.IsDir() {
-			candidatesByName = parseSpritesSrc(filePath, candidatesByName)
+			candidatesByName = findImportCandidates(filePath, candidatesByName)
 		} else {
 			ext := strings.ToLower(filepath.Ext(fileName))
 			if ext == ".png" {
@@ -170,7 +170,7 @@ func parseSpritesSrc(spritesPath string, candidatesByName map[string]MasterImage
 	return candidatesByName
 }
 
-func parseSpritesDst(spritesPath string) (sprites []GMSprite) {
+func findGMSprites(spritesPath string) (sprites []GMSprite) {
 	spriteInfos, err := os.ReadDir(spritesPath)
 	if err != nil {
 		log.Fatalf("Read %#q: %v", spritesPath, err)
@@ -185,11 +185,20 @@ func parseSpritesDst(spritesPath string) (sprites []GMSprite) {
 			if err != nil {
 				log.Fatalf("Read %#q: %v", yyPath, err)
 			}
-			sprite.Frames, err = parseYyFrames2(spriteYY, spritePath)
+			sprite.Frames, err = parseYyFrames(spriteYY, spritePath)
 			if err != nil {
 				log.Fatalf("Interpret %#q: %v", yyPath, err)
 			}
-			sprites = append(sprites, sprite)
+			canReImport := true
+			for i, frame := range sprite.Frames {
+				if frame.UtilizesLayers {
+					canReImport = false
+					log.Printf("WARN: Not considering frame %d of sprite %#q for re-import because it uses layers of GameMaker's built-in sprite editor, which this tool does not support.", i, sprite.Name)
+				}
+			}
+			if canReImport {
+				sprites = append(sprites, sprite)
+			}
 		} else {
 			log.Fatalf("Encountered unexpected non-folder file %#q.", filepath.Join(spritesPath, spriteInfo.Name()))
 		}
@@ -214,7 +223,7 @@ func sha256File(filePath string) (string, error) {
 	return hex.EncodeToString(sha256Encoder.Sum(nil)), nil
 }
 
-func parseYyFrames2(yy interface{}, spriteFolderPath string) (frames []GMFrame, err error) {
+func parseYyFrames(yy interface{}, spriteFolderPath string) (frames []GMFrame, err error) {
 	frameData, ok := yy.(map[string]interface{})
 	if frameData == nil || !ok {
 		return nil, fmt.Errorf("root-element is not an object")
@@ -271,10 +280,16 @@ func parseArgs(args []string) *Parameters {
 	fs := flag.NewFlagSet("main", flag.ContinueOnError)
 	fs.StringVar(&params.SrcPath, "src", "", "Path to directory structure containing sprites")
 	fs.StringVar(&params.DstPath, "dst", "", "Path to GameMaker project's sprites directory")
-	fs.BoolVar(&params.IsDryRun, "dry", false, "If set, only log what the program would reimport instead of actually reimporting")
+	fs.BoolVar(&params.IsDryRun, "dry", false, "If set, only log what the program would do instead of actually doing it")
 	err := fs.Parse(args)
 	if err != nil {
 		log.Fatal(err)
+	}
+	if params.SrcPath == "" {
+		log.Fatal("Must specify source path with -src.")
+	}
+	if params.DstPath == "" {
+		log.Fatal("Must specify destination path with -dst.")
 	}
 	return params
 }
