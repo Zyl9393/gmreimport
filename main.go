@@ -121,20 +121,26 @@ func determineReImports(candidatesSrcByName map[string]MasterImage, candidatesDs
 					if ok {
 						if imageSrc.Sha256 != spriteDst.Frames[i].Sha256 {
 							reImports = append(reImports, GMFrameReImport{Src: imageSrc, Dst: spriteDst, FrameIndex: i})
+						} else {
+							log.Printf("INFO: Frame %d of sprite %#q already matches image %#q.", i, spriteDst.Name, imageSrc.FilePath)
 						}
 					} else {
-						log.Printf("WARN: No image %#q to reimport frame %d of sprite %#q.", srcImageName, i, spriteDst.Name)
+						log.Printf("WARN: Found no image by file name %#q to reimport frame %d of sprite %#q.", srcImageName+".png", i, spriteDst.Name)
 					}
 				}
+			} else {
+				log.Printf("WARN: Found no source image by file name %#q or similar. Skipping other frames as well.", spriteDst.Name+"_0.png")
 			}
 		} else if len(spriteDst.Frames) == 1 {
 			imageSrc, ok := candidatesSrcByName[spriteDst.Name]
 			if ok {
 				if imageSrc.Sha256 != spriteDst.Frames[0].Sha256 {
 					reImports = append(reImports, GMFrameReImport{Src: imageSrc, Dst: spriteDst, FrameIndex: 0})
+				} else {
+					log.Printf("INFO: Sprite %#q already matches image %#q.", spriteDst.Name, imageSrc.FilePath)
 				}
 			} else {
-				log.Printf("WARN: Found no source sprite with name %#q.", spriteDst.Name)
+				log.Printf("WARN: Found no source image by file name %#q.", spriteDst.Name+".png")
 			}
 		}
 	}
@@ -190,10 +196,11 @@ func findGMSprites(spritesPath string) (sprites []GMSprite) {
 				log.Fatalf("Interpret %#q: %v", yyPath, err)
 			}
 			canReImport := true
-			for i, frame := range sprite.Frames {
+			for _, frame := range sprite.Frames {
 				if frame.UtilizesLayers {
 					canReImport = false
-					log.Printf("WARN: Not considering frame %d of sprite %#q for re-import because it uses layers of GameMaker's built-in sprite editor, which this tool does not support.", i, sprite.Name)
+					log.Printf("WARN: Not considering sprite %#q for re-import because it uses layers of GameMaker's built-in sprite editor, which this tool does not support.", sprite.Name)
+					break
 				}
 			}
 			if canReImport {
