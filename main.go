@@ -44,19 +44,41 @@ func main() {
 	log.SetFlags(0)
 	params := parseArgs(os.Args[1:])
 	candidatesSrcByName := findImportCandidates(params.SrcPath, make(map[string]MasterImage))
-	candidatesDst := findGMSprites(params.DstPath)
-	reImports := determineReImports(candidatesSrcByName, candidatesDst)
+	candidatesDst := findGMSprites(params.DstPath, params)
+	reImports := determineReImports(candidatesSrcByName, candidatesDst, params)
+	numSpritesTouched := 0
+	numFramesTouched := 0
 	for _, reImport := range reImports {
+		if reImport.FrameIndex == 0 {
+			numSpritesTouched++
+		}
+		numFramesTouched++
+
 		frame := reImport.Dst.Frames[reImport.FrameIndex]
 		fromFilePath := reImport.Src.FilePath
 		toFilePath1 := filepath.Join(params.DstPath, reImport.Dst.Name, frame.FileName)
 		toFilePath2 := filepath.Join(params.DstPath, reImport.Dst.Name, "layers", frame.Guid, frame.LayerFileName)
 		if params.IsDryRun {
-			log.Printf("Would copy %#q over %#q and %#q.", fromFilePath, toFilePath1, toFilePath2)
+			if !params.NoLogCopy {
+				log.Printf("Would copy %#q over %#q and %#q.", fromFilePath, toFilePath1, toFilePath2)
+			}
 		} else {
-			copyFile(fromFilePath, toFilePath1)
-			copyFile(fromFilePath, toFilePath2)
+			writeLog := !params.NoLogCopy
+			copyFileL(fromFilePath, toFilePath1, writeLog)
+			copyFileL(fromFilePath, toFilePath2, writeLog)
 		}
+	}
+	if params.IsDryRun {
+		log.Printf("Would have updated %d frames across %d sprites.", numFramesTouched, numSpritesTouched)
+	} else {
+		log.Printf("Updated %d frames across %d sprites.", numFramesTouched, numSpritesTouched)
+	}
+}
+
+func copyFileL(fromFilePath, toFilePath string, writeLog bool) {
+	copyFile(fromFilePath, toFilePath)
+	if writeLog {
+		log.Printf("Copied %#q to %#q.", fromFilePath, toFilePath)
 	}
 }
 
@@ -75,10 +97,9 @@ func copyFile(fromFilePath, toFilePath string) {
 	if err != nil {
 		log.Fatalf("Could not copy %#q to %#q: %v", fromFilePath, toFilePath, err)
 	}
-	log.Printf("Copied %#q to %#q.", fromFilePath, toFilePath)
 }
 
-func determineReImports(candidatesSrcByName map[string]MasterImage, candidatesDst []GMSprite) (reImports []GMFrameReImport) {
+func determineReImports(candidatesSrcByName map[string]MasterImage, candidatesDst []GMSprite, params *Parameters) (reImports []GMFrameReImport) {
 	for _, spriteDst := range candidatesDst {
 		if len(spriteDst.Frames) > 1 {
 			const numDigitVariants = 4
@@ -121,14 +142,14 @@ func determineReImports(candidatesSrcByName map[string]MasterImage, candidatesDs
 					if ok {
 						if imageSrc.Sha256 != spriteDst.Frames[i].Sha256 {
 							reImports = append(reImports, GMFrameReImport{Src: imageSrc, Dst: spriteDst, FrameIndex: i})
-						} else {
-							log.Printf("INFO: Frame %d of sprite %#q already matches image %#q.", i, spriteDst.Name, imageSrc.FilePath)
+						} else if !params.NoLogSrcMatch {
+							log.Printf("Frame %d of sprite %#q already matches image %#q.", i, spriteDst.Name, imageSrc.FilePath)
 						}
-					} else {
+					} else if !params.NoLogSrcMiss {
 						log.Printf("WARN: Found no image by file name %#q to reimport frame %d of sprite %#q.", srcImageName+".png", i, spriteDst.Name)
 					}
 				}
-			} else {
+			} else if !params.NoLogSrcMiss {
 				log.Printf("WARN: Found no source image by file name %#q or similar. Skipping other frames as well.", spriteDst.Name+"_0.png")
 			}
 		} else if len(spriteDst.Frames) == 1 {
@@ -136,10 +157,10 @@ func determineReImports(candidatesSrcByName map[string]MasterImage, candidatesDs
 			if ok {
 				if imageSrc.Sha256 != spriteDst.Frames[0].Sha256 {
 					reImports = append(reImports, GMFrameReImport{Src: imageSrc, Dst: spriteDst, FrameIndex: 0})
-				} else {
-					log.Printf("INFO: Sprite %#q already matches image %#q.", spriteDst.Name, imageSrc.FilePath)
+				} else if !params.NoLogSrcMatch {
+					log.Printf("Sprite %#q already matches image %#q.", spriteDst.Name, imageSrc.FilePath)
 				}
-			} else {
+			} else if !params.NoLogSrcMiss {
 				log.Printf("WARN: Found no source image by file name %#q.", spriteDst.Name+".png")
 			}
 		}
@@ -176,7 +197,7 @@ func findImportCandidates(spritesPath string, candidatesByName map[string]Master
 	return candidatesByName
 }
 
-func findGMSprites(spritesPath string) (sprites []GMSprite) {
+func findGMSprites(spritesPath string, params *Parameters) (sprites []GMSprite) {
 	spriteInfos, err := os.ReadDir(spritesPath)
 	if err != nil {
 		log.Fatalf("Read %#q: %v", spritesPath, err)
@@ -199,7 +220,9 @@ func findGMSprites(spritesPath string) (sprites []GMSprite) {
 			for _, frame := range sprite.Frames {
 				if frame.UtilizesLayers {
 					canReImport = false
-					log.Printf("WARN: Not considering sprite %#q for re-import because it uses layers of GameMaker's built-in sprite editor, which this tool does not support.", sprite.Name)
+					if !params.NoLogDstBad {
+						log.Printf("WARN: Not considering sprite %#q for re-import because it uses layers of GameMaker's built-in sprite editor, which this tool does not support.", sprite.Name)
+					}
 					break
 				}
 			}
@@ -277,9 +300,13 @@ func parseYyFrames(yy interface{}, spriteFolderPath string) (frames []GMFrame, e
 }
 
 type Parameters struct {
-	SrcPath  string
-	DstPath  string
-	IsDryRun bool
+	SrcPath       string
+	DstPath       string
+	IsDryRun      bool
+	NoLogSrcMatch bool
+	NoLogSrcMiss  bool
+	NoLogDstBad   bool
+	NoLogCopy     bool
 }
 
 func parseArgs(args []string) *Parameters {
@@ -288,6 +315,10 @@ func parseArgs(args []string) *Parameters {
 	fs.StringVar(&params.SrcPath, "src", "", "Path to directory structure containing sprites")
 	fs.StringVar(&params.DstPath, "dst", "", "Path to GameMaker project's sprites directory")
 	fs.BoolVar(&params.IsDryRun, "dry", false, "If set, only log what the program would do instead of actually doing it")
+	fs.BoolVar(&params.NoLogSrcMatch, "no-log-src-match", false, "If set, do not log about skipped re-imports caused by source image already matching destination sprite frame")
+	fs.BoolVar(&params.NoLogSrcMiss, "no-log-src-miss", false, "If set, do not log about skipped re-imports caused by source image not being available for destination sprite frame")
+	fs.BoolVar(&params.NoLogDstBad, "no-log-dst-bad", false, "If set, do not log about skipped re-imports caused by problems with destination sprite, such as it using multiple layers")
+	fs.BoolVar(&params.NoLogCopy, "no-log-copy", false, "If set, do not log about re-import file copy operations")
 	err := fs.Parse(args)
 	if err != nil {
 		log.Fatal(err)
