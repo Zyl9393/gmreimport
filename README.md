@@ -2,26 +2,38 @@
 
 This program, `gmreimport`, will scan a GameMaker project's `sprites` directory for sprites and their subimages (frames) and look in a specified directory for `.png` files to update them with and copy them over, effectively performing a re-import of all sprite assets (for which their source files could be found).
 
-This is a console application which needs to be invoked from a command line. An easy way to accomplish this is through use of a batch-script (`.bat`-file).
+This is a console application which needs to be invoked from a command line. An easy way to accomplish this is through use of a batch-script (`.bat`-file), the following of which are recommended:
 
-Recommended `.bat`-files:
-
-`reimport-sprites-dry.bat`: (dry run logs what `gmreimport` would do, without actually doing it, making it safe to run)
+`reimport_sprites_dry_check_for_problems.bat`: (dry run which prints to console any problems that were detected; omits information about which files would be copied)
 ```
-gmreimport.exe -dry -src .\sprites_master -dst .\mygame\sprites
+gmreimport.exe -no-log-src-match -no-log-copy -dry -src .\sprites_master -dst .\mygame\sprites
 @ECHO Press any key to close this window.
 @PAUSE>NUL
 ```
 
-`reimport-sprites.bat`: (writes files in the directory given after `-dst`; **absolutely backup your entire project beforehand**)
+`reimport_sprites_dry_list.bat`: (dry run which lists which files would be copied; omits information about problems)
 ```
-gmreimport.exe -src .\sprites_master -dst .\mygame\sprites
+gmreimport.exe -no-log-src-match -no-log-src-miss -no-log-dst-bad -dry -src .\sprites_master -dst .\mygame\sprites
 @ECHO Press any key to close this window.
 @PAUSE>NUL
 ```
 
-Path following `-dst` needs to point to the `sprites`-folder of a GameMaker project and will be scanned for existing sprites.  
-Path following `-src` needs to point to the directory containing updated `.png` files.
+`reimport_sprites_run.bat`: (writes files in the directory given after `-dst`; **absolutely backup your entire project beforehand**)
+```
+gmreimport.exe -no-log-src-match -src .\sprites_master -dst .\mygame\sprites
+@ECHO Press any key to close this window.
+@PAUSE>NUL
+```
+
+## Command line reference
+
+* `-src [path]`: sets `[path]` as the directory to look for updated `.png`-files in.
+* `-dst [path]`: sets `[path]` as the directory to expect GameMaker sprites to update in.
+* `-dry`: disables all file writing operations and only prints to console what would happen if this flag wasn't set.
+* `-no-log-src-match`: do not log about skipped re-imports caused by source image already matching destination sprite frame.
+* `-no-log-src-miss`: do not log about skipped re-imports caused by source image not being available for destination sprite frame.
+* `-no-log-dst-bad`: do not log about skipped re-imports caused by problems with destination sprite, such as it using multiple layers.
+* `-no-log-copy`: do not log about re-import file copy operations. **If you set this together with `-dry` you will not see what files would be written.**
 
 ## Why?
 

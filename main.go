@@ -324,7 +324,7 @@ func parseArgs(args []string) *Parameters {
 	fs := flag.NewFlagSet("main", flag.ContinueOnError)
 	fs.StringVar(&params.SrcPath, "src", "", "Path to directory structure containing sprites")
 	fs.StringVar(&params.DstPath, "dst", "", "Path to GameMaker project's sprites directory")
-	fs.BoolVar(&params.IsDryRun, "dry", false, "If set, only log what the program would do instead of actually doing it")
+	fs.BoolVar(&params.IsDryRun, "dry", false, "If set, disables all file writing operations and only prints to console what would happen if this flag wasn't set")
 	fs.BoolVar(&params.NoLogSrcMatch, "no-log-src-match", false, "If set, do not log about skipped re-imports caused by source image already matching destination sprite frame")
 	fs.BoolVar(&params.NoLogSrcMiss, "no-log-src-miss", false, "If set, do not log about skipped re-imports caused by source image not being available for destination sprite frame")
 	fs.BoolVar(&params.NoLogDstBad, "no-log-dst-bad", false, "If set, do not log about skipped re-imports caused by problems with destination sprite, such as it using multiple layers")
