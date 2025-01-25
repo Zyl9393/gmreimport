@@ -225,6 +225,16 @@ func findGMSprites(spritesPath string, params *Parameters) (sprites []GMSprite) 
 					}
 					break
 				}
+				frameFilePath := filepath.Join(spritesPath, sprite.Name, frame.FileName)
+				_, err = os.Stat(frameFilePath)
+				if err != nil {
+					log.Fatalf("Unexpectedly absent file %#q.", frameFilePath)
+				}
+				layerFilePath := filepath.Join(spritesPath, sprite.Name, "layers", frame.Guid, frame.LayerFileName)
+				_, err = os.Stat(layerFilePath)
+				if err != nil {
+					log.Fatalf("Unexpectedly absent file %#q.", layerFilePath)
+				}
 			}
 			if canReImport {
 				sprites = append(sprites, sprite)
