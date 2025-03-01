@@ -88,16 +88,12 @@ Sprites which have more than one layer in GameMaker's built-in sprite editor are
 
 ### PNG Recoding
 
-GameMaker likes to recode the `.png`-files of sprites. We don't know how or why, but it does not seem to be necessary. The only issue this is known to cause is that `gmreimport` will fail to detect when recoded files are in reality unchanged, updating them unnecessarily. If you ever notice strange graphical behaviors or artifacts, or an increase in loading times after using `gmreimport`, the specific encoding done by your image editing software might have a compatibility issue with how GameMaker attempts to decode it. So far, I can report `.png`-files exported by Aseprite and Clip Studio not causing any problems.
-
-### Changed files warning
-
-When running `gmreimport` while the project is open in GameMaker, GameMaker might prompt you about changes to files. Strangely, when selecting `Reload` it will recode the newly imported `.png` files, but clicking `Save` will accept them as-is. Thus, `Save` is generally preferred if you encounter this, as `gmreimport` can then avoid unnecessary re-import of files that have not changed. However, also notice hint about recoding above.
+When running `gmreimport` while the project is open in GameMaker, GameMaker might prompt you about changes to files. When selecting `Reload` it will recode the newly imported `.png` files, while clicking `Save` will rollback the changes (at least for those files which GameMaker was holding in cache at the time). Thus, choosing `Reload` is required to make sure your changes are persisted. We don't know how or why the recoding is done, but it does not seem to be necessary. If you ever notice strange graphical behaviors or artifacts, or an increase in loading times after using `gmreimport`, the specific encoding done by your image editing software might have a compatibility issue with how GameMaker attempts to decode it. So far, I can report `.png`-files exported by Aseprite and Clip Studio not causing any problems. The only issue which recoding is known to cause is that `gmreimport` will fail to detect when recoded files are in reality unchanged, updating them unnecessarily. For the time being, it appears this problem can be mitigated by running `gmreimport` while GameMaker is closed every now and then.
 
 ### Rigid naming pattern
 
 You might find the naming pattern enforced by this tool to be restrictive. Perhaps you would like your sprites to have the `spr_`-prefix, but not your image files, or maybe you prefer to construct the sprite name through concatenation with a parent folder name, etc.  
 I have found that keeping the names of source files as close to the sprite name as possible provides several advantages:
 * You can freely reorganize your source files into different folders without any renaming work.
-* Matches the behavior of drag &amp; drop in GameMaker which also morphs file names right into sprite names.
+* Matches the behavior of drag &amp; drop in GameMaker which also directly morphs file names into sprite names.
 * Matches single namespace paradigm which GameMaker uses, enabling us to find source files no matter where in your folder structure they are and without `gmreimport` needing to know the semantics of your folder structure.
